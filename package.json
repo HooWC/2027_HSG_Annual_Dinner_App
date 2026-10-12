@@ -1,0 +1,43 @@
+{
+  "name": "annualdinner",
+  "main": "expo-router/entry",
+  "version": "1.0.0",
+  "dependencies": {
+    "@expo/vector-icons": "^15.0.2",
+    "expo": "~57.0.27",
+    "expo-camera": "~57.0.6",
+    "expo-constants": "~57.0.21",
+    "expo-linking": "~57.0.12",
+    "expo-router": "~57.0.25",
+    "expo-splash-screen": "~57.0.9",
+    "expo-status-bar": "~57.0.1",
+    "expo-system-ui": "~57.0.4",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "react-native": "0.86.3",
+    "react-native-gesture-handler": "~2.32.0",
+    "react-native-safe-area-context": "~5.7.0",
+    "react-native-screens": "~4.26.0",
+    "react-native-web": "~0.21.0"
+  },
+  "devDependencies": {
+    "@types/react": "~19.2.2",
+    "typescript": "~6.0.3"
+  },
+  "scripts": {
+    "start": "expo start --clear",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
+    "web": "expo start --web",
+    "postinstall": "node fix-screens-cmake.js && node fix-native-link.js && node fix-win-maxpath.js",
+    "prebuild": "expo prebuild --clean",
+    "build:apk": "node scripts/build-short.js",
+    "build:apk:clean": "npm run clean:all && npm run build:apk",
+    "enable-long-paths": "powershell -ExecutionPolicy Bypass -File ./scripts/enable-long-paths.ps1",
+    "clean:all": "npm run clean:cmake && npm run clean:gradle",
+    "clean:cmake": "node -e \"const fs=require('fs');function del(d){try{if(fs.existsSync(d)){fs.rmSync(d,{recursive:true,force:true});console.log('cleaned',d);}}catch(e){console.log(e.message)}}['android/.cxx','android/app/.cxx','android/app/build/.cxx','android/app/build/intermediates/cxx','android/build/.cxx','node_modules/react-native-screens/android/.cxx','node_modules/expo-modules-core/android/.cxx','node_modules/react-native-safe-area-context/android/.cxx','node_modules/react-native-gesture-handler/android/.cxx'].forEach(del);\"",
+    "clean:gradle": "node -e \"const fs=require('fs');['android/.gradle','android/app/build','android/build'].forEach(d=>{try{if(fs.existsSync(d)){fs.rmSync(d,{recursive:true,force:true});console.log('cleaned',d);}}catch(e){}});\"",
+    "lint": "expo lint"
+  },
+  "private": true
+}
