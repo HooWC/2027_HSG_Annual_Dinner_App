@@ -6,26 +6,30 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
+  Image,
+  ScrollView,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { API_ENDPOINTS } from '../config/api.config';
+import { API_BASE_URL, API_ENDPOINTS } from '../config/api.config';
 import { apiJson } from '../utils/apiClient';
 
 export default function ConfirmScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams();
+  const employeeId = String(params.employeeId || '').trim();
+  const qrFullName = String(params.fullName || '').trim();
   const [submitting, setSubmitting] = useState(false);
   const [checking, setChecking] = useState(true);
   const [employeeValid, setEmployeeValid] = useState(false);
-  const [displayName, setDisplayName] = useState('');
-
-  const employeeId = String(params.employeeId || '').trim();
-  const qrFullName = String(params.fullName || '').trim();
+  const [displayName, setDisplayName] = useState(qrFullName);
+  const [avatarUri, setAvatarUri] = useState(null);
+  const [alreadyCheckedIn, setAlreadyCheckedIn] = useState(false);
+  const [notFound, setNotFound] = useState(false);
 
   const goHome = () => {
     router.replace('/');
@@ -55,13 +59,11 @@ export default function ConfirmScreen() {
 
         setEmployeeValid(true);
         setDisplayName(user.FullName || qrFullName);
+        setAvatarUri(user.avatarUrl ? `${API_BASE_URL}${user.avatarUrl}` : null);
 
         if (user.Thumping) {
-          Alert.alert(
-            'Already Checked In',
-            `EMP ID ${employeeId} (${user.FullName}) has already checked in.`,
-            [{ text: 'OK', onPress: goHome }]
-          );
+          setAlreadyCheckedIn(true);
+          setEmployeeValid(false);
         }
       } catch (error) {
         if (cancelled) return;
@@ -72,14 +74,7 @@ export default function ConfirmScreen() {
           /not found/i.test(error.message || '');
 
         if (notFound) {
-          Alert.alert(
-            'Employee Not Found',
-            `EMP ID "${employeeId}" is not in the database.\n\nPlease check the QR code and try again.`,
-            [
-              { text: 'Scan Again', onPress: goScan },
-              { text: 'Home', onPress: goHome },
-            ]
-          );
+          setNotFound(true);
         } else {
           Alert.alert(
             'Lookup Failed',
@@ -120,65 +115,97 @@ export default function ConfirmScreen() {
       );
       setTimeout(goHome, 900);
     } catch (error) {
+      if (error.status === 409 || /already checked in/i.test(error.message || '')) {
+        setAlreadyCheckedIn(true);
+        setEmployeeValid(false);
+        return;
+      }
+      if (error.status === 404 || /not found/i.test(error.message || '')) {
+        setNotFound(true);
+        setEmployeeValid(false);
+        return;
+      }
       Alert.alert('Check-in Failed', error.message || 'Unable to check in');
     } finally {
       setSubmitting(false);
     }
   };
 
-  if (checking) {
-    return (
-      <View style={[styles.container, styles.centerContent]}>
-        <StatusBar style="light" />
-        <ActivityIndicator size="large" color="#d4a017" />
-        <Text style={styles.loadingText}>Checking EMP ID in database...</Text>
-      </View>
-    );
-  }
-
   return (
-    <View style={[styles.container, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 20 }]}>
+    <View style={[styles.container, { paddingTop: insets.top + 12 }]}>
       <StatusBar style="light" />
 
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Confirm Check-in</Text>
-        <Text style={styles.headerSubtitle}>Please verify employee details</Text>
-      </View>
-
-      <View style={styles.card}>
-        <View style={styles.cardIcon}>
-          <Ionicons name="person-circle-outline" size={48} color="#0f2744" />
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Confirm Check-in</Text>
+          <Text style={styles.headerSubtitle}>
+            {checking ? 'Checking database...' : 'Please verify employee details'}
+          </Text>
         </View>
 
-        <View style={styles.row}>
-          <Text style={styles.label}>EMP ID</Text>
-          <Text style={styles.value}>{employeeId || '—'}</Text>
+        {alreadyCheckedIn ? (
+          <View style={styles.alreadyBox}>
+            <Ionicons name="alert-circle" size={18} color="#b42318" />
+            <Text style={styles.alreadyTitle}>Already Checked In</Text>
+          </View>
+        ) : null}
+
+        {notFound ? (
+          <View style={styles.notFoundBox}>
+            <Ionicons name="person-remove" size={18} color="#b54708" />
+            <Text style={styles.notFoundTitle}>Employee Not Found</Text>
+          </View>
+        ) : null}
+
+        <View style={styles.card}>
+          <View style={styles.cardIcon}>
+            {avatarUri ? (
+              <Image
+                source={{ uri: avatarUri }}
+                style={alreadyCheckedIn || notFound ? styles.avatarSmall : styles.avatar}
+              />
+            ) : (
+              <Ionicons name="person-circle-outline" size={alreadyCheckedIn || notFound ? 72 : 88} color="#0f2744" />
+            )}
+          </View>
+
+          <View style={styles.row}>
+            <Text style={styles.label}>EMP ID</Text>
+            <Text style={styles.value}>{employeeId || '—'}</Text>
+          </View>
+
+          <View style={styles.divider} />
+
+          <View style={styles.row}>
+            <Text style={styles.label}>Name</Text>
+            <Text style={styles.value}>{displayName || qrFullName || '—'}</Text>
+          </View>
         </View>
+      </ScrollView>
 
-        <View style={styles.divider} />
-
-        <View style={styles.row}>
-          <Text style={styles.label}>Name</Text>
-          <Text style={styles.value}>{displayName || qrFullName || '—'}</Text>
-        </View>
-      </View>
-
-      <View style={styles.actions}>
-        <TouchableOpacity
-          style={[styles.checkInButton, (submitting || !employeeValid) && styles.buttonDisabled]}
-          onPress={handleCheckIn}
-          disabled={submitting || !employeeValid}
-          activeOpacity={0.85}
-        >
-          {submitting ? (
-            <ActivityIndicator color="#0f2744" />
-          ) : (
-            <>
-              <Ionicons name="checkmark-circle" size={24} color="#0f2744" />
-              <Text style={styles.checkInText}>Check In</Text>
-            </>
-          )}
-        </TouchableOpacity>
+      <View style={[styles.actions, { paddingBottom: Math.max(insets.bottom, 16) + 8 }]}>
+        {!alreadyCheckedIn && !notFound ? (
+          <TouchableOpacity
+            style={[styles.checkInButton, (submitting || !employeeValid) && styles.buttonDisabled]}
+            onPress={handleCheckIn}
+            disabled={submitting || checking || !employeeValid}
+            activeOpacity={0.85}
+          >
+            {submitting || checking ? (
+              <ActivityIndicator color="#0f2744" />
+            ) : (
+              <>
+                <Ionicons name="checkmark-circle" size={24} color="#0f2744" />
+                <Text style={styles.checkInText}>Check In</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        ) : null}
 
         <TouchableOpacity
           style={styles.backButton}
@@ -209,8 +236,15 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 16,
   },
+  scroll: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingHorizontal: 24,
+    paddingBottom: 12,
+  },
   header: {
-    marginBottom: 28,
+    marginBottom: 16,
     alignItems: 'center',
   },
   headerTitle: {
@@ -222,6 +256,42 @@ const styles = StyleSheet.create({
     marginTop: 8,
     fontSize: 15,
     color: 'rgba(255,255,255,0.65)',
+  },
+  alreadyBox: {
+    marginBottom: 12,
+    borderWidth: 2,
+    borderColor: '#e10600',
+    backgroundColor: '#fff1f0',
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  alreadyTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#b42318',
+  },
+  notFoundBox: {
+    marginBottom: 12,
+    borderWidth: 2,
+    borderColor: '#f79009',
+    backgroundColor: '#fffaeb',
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  notFoundTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#b54708',
   },
   card: {
     backgroundColor: '#ffffff',
@@ -237,6 +307,18 @@ const styles = StyleSheet.create({
   cardIcon: {
     alignItems: 'center',
     marginBottom: 18,
+  },
+  avatar: {
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    backgroundColor: '#e8eef5',
+  },
+  avatarSmall: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    backgroundColor: '#e8eef5',
   },
   row: {
     marginVertical: 8,
@@ -259,8 +341,10 @@ const styles = StyleSheet.create({
     marginVertical: 10,
   },
   actions: {
-    marginTop: 'auto',
+    paddingHorizontal: 24,
+    paddingTop: 12,
     gap: 12,
+    backgroundColor: '#0f2744',
   },
   checkInButton: {
     height: 58,

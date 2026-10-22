@@ -33,4 +33,5 @@ export const API_ENDPOINTS = {
   HEALTH: '/health',
   SCAN_CHECKIN: '/USERS/scan-checkin',
   BY_EMPLOYEE: (employeeId) => `/USERS/by-employee/${encodeURIComponent(employeeId)}`,
+  AVATAR: (employeeId) => `/USERS/avatar/${encodeURIComponent(employeeId)}`,
 };

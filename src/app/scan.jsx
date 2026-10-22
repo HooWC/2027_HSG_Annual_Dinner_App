@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -21,6 +21,7 @@ export default function ScanScreen() {
   const [hasPermission, setHasPermission] = useState(null);
   const [scanned, setScanned] = useState(false);
   const [torchEnabled, setTorchEnabled] = useState(false);
+  const scanLock = useRef(false);
 
   useEffect(() => {
     (async () => {
@@ -30,8 +31,8 @@ export default function ScanScreen() {
   }, []);
 
   const handleBarCodeScanned = ({ data }) => {
-    if (scanned) return;
-
+    if (scanLock.current) return;
+    scanLock.current = true;
     setScanned(true);
 
     try {
@@ -47,7 +48,10 @@ export default function ScanScreen() {
       Alert.alert('Invalid QR', error.message || 'Could not read QR code', [
         {
           text: 'Scan Again',
-          onPress: () => setScanned(false),
+          onPress: () => {
+            scanLock.current = false;
+            setScanned(false);
+          },
         },
       ]);
     }
